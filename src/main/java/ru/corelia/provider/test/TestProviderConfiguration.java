@@ -6,6 +6,7 @@ import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import ru.corelia.auth.PermissionChecker;
+import ru.corelia.auth.AuthKeyProvider;
 import ru.corelia.provider.AttachmentCatalog;
 import ru.corelia.provider.BinaryStorage;
 import ru.corelia.provider.DocumentStore;
@@ -29,6 +30,7 @@ public class TestProviderConfiguration {
     @Bean BinaryStorage binaryStorage() { return capability(BinaryStorage.class); }
     @Bean AttachmentCatalog attachmentCatalog() { return capability(AttachmentCatalog.class); }
     @Bean PermissionProvider permissionProvider() { return capability(PermissionProvider.class); }
+    @Bean AuthKeyProvider authKeyProvider() { return () -> ""; }
     @Bean PermissionChecker permissionChecker(PermissionProvider provider) { return provider::require; }
 
     @SuppressWarnings("unchecked")
