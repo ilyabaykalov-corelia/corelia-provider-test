@@ -26,6 +26,7 @@ import ru.corelia.provider.model.AttachmentMetadata;
 import ru.corelia.provider.model.AvailableDocumentType;
 import ru.corelia.provider.model.BinaryStoreRequest;
 import ru.corelia.provider.model.DocumentMutation;
+import ru.corelia.provider.model.DocumentCreation;
 import ru.corelia.provider.model.DocumentSearchRequest;
 import ru.corelia.provider.model.DocumentSearchResult;
 import ru.corelia.provider.model.DocumentSnapshot;
@@ -73,6 +74,28 @@ public final class InMemoryTestProvider implements DocumentStore, DocumentVersio
         return document;
     }
 
+    @Override public synchronized void create(DocumentCreation creation, AuthContext auth) {
+        var prior = receipts.get(creation.idempotencyKey());
+        if (prior != null) {
+            if (!prior.requestHash().equals(creation.requestHash()))
+                throw new ApiException(409, "Ключ идемпотентности использован для другой команды");
+            return;
+        }
+        if (documents.containsKey(creation.documentId()))
+            throw new ApiException(409, "Документ уже существует");
+        Instant createdAt = creation.createdAt() == null ? Instant.now() : creation.createdAt();
+        String createdBy = creation.createdBy() == null ? auth.id() : creation.createdBy();
+        var snapshot = new DocumentSnapshot(creation.documentId(), creation.typeCode(), creation.status(), 1,
+                creation.attributes(), createdBy, createdAt, "test-1");
+        documents.put(snapshot.id(), snapshot);
+        var initial = creation.initialAttachment();
+        if (initial != null) putAttachment(initial);
+        versions.put(snapshot.id(), new ArrayList<>(List.of(new DocumentVersion("version-1", snapshot.id(), 1, 1,
+                snapshot.attributes(), snapshot.status(), createdAt, createdBy, null,
+                initial == null ? List.of() : List.of(initial)))));
+        receipts.put(creation.idempotencyKey(), new IdempotencyReceipt(creation.requestHash(), object()));
+    }
+
     @Override public synchronized String documentType(String documentId, AuthContext auth) {
         return requiredDocument(documentId).typeCode();
     }
@@ -108,7 +131,7 @@ public final class InMemoryTestProvider implements DocumentStore, DocumentVersio
         int currentVersion = mutation.createdVersion() == null ? (old == null ? 0 : old.currentVersion()) : mutation.createdVersion().number();
         String token = "test-" + currentVersion;
         var snapshot = new DocumentSnapshot(mutation.documentId(), mutation.documentType(),
-                old == null ? "DRAFT" : old.status(), currentVersion, mutation.attributes(),
+                old == null ? "INITIAL" : old.status(), currentVersion, mutation.attributes(),
                 old == null ? auth.id() : old.createdBy(), old == null ? Instant.now() : old.createdAt(), token);
         documents.put(snapshot.id(), snapshot);
         if (mutation.closedVersion() != null) replaceVersion(mutation.closedVersion());
