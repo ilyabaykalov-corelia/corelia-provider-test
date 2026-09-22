@@ -1,5 +1,6 @@
 package ru.corelia.provider.test;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -18,19 +19,26 @@ import ru.corelia.provider.WorkflowProvider;
 @AutoConfiguration
 @ConditionalOnProperty(name = "corelia.provider", havingValue = "test")
 public class TestProviderConfiguration {
-    @Bean DocumentStore documentStore() { return unsupported(DocumentStore.class); }
-    @Bean DocumentVersionStore documentVersionStore() { return unsupported(DocumentVersionStore.class); }
-    @Bean DocumentTypeProvider documentTypeProvider() { return unsupported(DocumentTypeProvider.class); }
-    @Bean WorkflowProvider workflowProvider() { return unsupported(WorkflowProvider.class); }
-    @Bean TaskProvider taskProvider() { return unsupported(TaskProvider.class); }
-    @Bean BinaryStorage binaryStorage() { return unsupported(BinaryStorage.class); }
-    @Bean AttachmentCatalog attachmentCatalog() { return unsupported(AttachmentCatalog.class); }
-    @Bean PermissionProvider permissionProvider() { return unsupported(PermissionProvider.class); }
+    private final InMemoryTestProvider provider = new InMemoryTestProvider();
+
+    @Bean DocumentStore documentStore() { return capability(DocumentStore.class); }
+    @Bean DocumentVersionStore documentVersionStore() { return capability(DocumentVersionStore.class); }
+    @Bean DocumentTypeProvider documentTypeProvider() { return capability(DocumentTypeProvider.class); }
+    @Bean WorkflowProvider workflowProvider() { return capability(WorkflowProvider.class); }
+    @Bean TaskProvider taskProvider() { return capability(TaskProvider.class); }
+    @Bean BinaryStorage binaryStorage() { return capability(BinaryStorage.class); }
+    @Bean AttachmentCatalog attachmentCatalog() { return capability(AttachmentCatalog.class); }
+    @Bean PermissionProvider permissionProvider() { return capability(PermissionProvider.class); }
     @Bean PermissionChecker permissionChecker(PermissionProvider provider) { return provider::require; }
-    @SuppressWarnings("unchecked") private static <T> T unsupported(Class<T> type) {
-        return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, (proxy, method, args) -> {
-            if (method.getDeclaringClass() == Object.class) return method.getName().equals("toString") ? "test-provider" : null;
-            throw new UnsupportedOperationException("Test provider не выполняет " + method.getName());
+
+    @SuppressWarnings("unchecked")
+    private <T> T capability(Class<T> type) {
+        return (T) Proxy.newProxyInstance(type.getClassLoader(), new Class<?>[] {type}, (proxy, method, arguments) -> {
+            try {
+                return method.invoke(provider, arguments);
+            } catch (InvocationTargetException error) {
+                throw error.getCause();
+            }
         });
     }
 }
