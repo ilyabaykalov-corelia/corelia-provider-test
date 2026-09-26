@@ -49,6 +49,7 @@ public final class InMemoryTestProvider implements DocumentStore, DocumentVersio
     private final Map<String, AttachmentMetadata> attachments = new LinkedHashMap<>();
     private final Map<String, List<AttachmentMetadata>> attachmentVersions = new LinkedHashMap<>();
     private final Map<String, IdempotencyReceipt> receipts = new LinkedHashMap<>();
+    private final Map<String, List<JsonNode>> history = new LinkedHashMap<>();
     private final Map<String, byte[]> files = new LinkedHashMap<>();
     private final Map<String, ProcessInstance> processes = new LinkedHashMap<>();
     private final Map<String, WorkflowTask> tasks = new LinkedHashMap<>();
@@ -93,6 +94,7 @@ public final class InMemoryTestProvider implements DocumentStore, DocumentVersio
         versions.put(snapshot.id(), new ArrayList<>(List.of(new DocumentVersion("version-1", snapshot.id(), 1, 1,
                 snapshot.attributes(), snapshot.status(), createdAt, createdBy, null,
                 initial == null ? List.of() : List.of(initial)))));
+        if (creation.history() != null) history.computeIfAbsent(snapshot.id(), ignored -> new ArrayList<>()).add(creation.history());
         receipts.put(creation.idempotencyKey(), new IdempotencyReceipt(creation.requestHash(), object()));
     }
 
@@ -119,6 +121,7 @@ public final class InMemoryTestProvider implements DocumentStore, DocumentVersio
     @Override public synchronized IdempotencyReceipt receipt(String idempotencyKey, AuthContext auth) {
         return receipts.get(idempotencyKey);
     }
+    @Override public synchronized List<JsonNode> history(String documentId, AuthContext auth) { return List.copyOf(history.getOrDefault(documentId, List.of())); }
 
     @Override public synchronized void commit(DocumentMutation mutation, AuthContext auth) {
         var prior = receipts.get(mutation.idempotencyKey());
@@ -138,6 +141,7 @@ public final class InMemoryTestProvider implements DocumentStore, DocumentVersio
         if (mutation.createdVersion() != null) versions.computeIfAbsent(snapshot.id(), ignored -> new ArrayList<>()).add(mutation.createdVersion());
         if (mutation.retiredAttachment() != null) attachments.remove(mutation.retiredAttachment().id());
         if (mutation.createdAttachment() != null) putAttachment(mutation.createdAttachment());
+        if (mutation.history() != null) history.computeIfAbsent(mutation.documentId(), ignored -> new ArrayList<>()).add(mutation.history());
         if (mutation.idempotencyKey() != null && !mutation.idempotencyKey().isBlank())
             receipts.put(mutation.idempotencyKey(), new IdempotencyReceipt(mutation.requestHash(), mutation.response()));
     }
