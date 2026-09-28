@@ -18,8 +18,6 @@ import ru.corelia.provider.TaskProvider;
 import ru.corelia.provider.WorkflowProvider;
 import ru.corelia.provider.ProviderCapability;
 import ru.corelia.provider.ProviderDescriptor;
-import ru.corelia.provider.ProviderStartupValidator;
-import ru.corelia.config.CoreliaRuntimeConfig;
 
 /** Минимальный provider для проверки независимого старта Corelia. */
 @AutoConfiguration
@@ -35,10 +33,10 @@ public class TestProviderConfiguration {
     @Bean BinaryStorage binaryStorage() { return capability(BinaryStorage.class); }
     @Bean AttachmentCatalog attachmentCatalog() { return capability(AttachmentCatalog.class); }
     @Bean PermissionProvider permissionProvider() { return capability(PermissionProvider.class); }
-    @Bean ProviderDescriptor providerDescriptor(@org.springframework.beans.factory.annotation.Qualifier("coreliaRuntimeConfig") CoreliaRuntimeConfig config) { ProviderDescriptor descriptor = new ProviderDescriptor() {
+    @Bean ProviderDescriptor providerDescriptor() { ProviderDescriptor descriptor = new ProviderDescriptor() {
         public String id() { return "test"; }
         public java.util.Set<ProviderCapability> capabilities() { return java.util.EnumSet.allOf(ProviderCapability.class); }
-    }; ProviderStartupValidator.validate(config.provider(), descriptor); return descriptor; }
+    }; return descriptor; }
     @Bean AuthKeyProvider authKeyProvider() { return () -> ""; }
     @Bean AuthIdentityProvider authIdentityProvider() { return new AuthIdentityProvider() { public String issuer() { return "test"; } public java.util.Set<String> audiences() { return java.util.Set.of("corelia-web"); } }; }
     @Bean PermissionChecker permissionChecker(PermissionProvider provider) { return provider::require; }
