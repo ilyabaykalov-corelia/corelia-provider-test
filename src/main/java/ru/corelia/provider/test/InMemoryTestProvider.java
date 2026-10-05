@@ -152,7 +152,7 @@ public final class InMemoryTestProvider implements DocumentStore, DocumentVersio
 
     @Override public synchronized ProcessInstance start(WorkflowContext context, AuthContext auth) {
         String id = "process-" + UUID.randomUUID();
-        var process = new ProcessInstance(id, context.documentId(), "STARTED");
+        var process = new ProcessInstance(id, context.documentId(), "STARTED", "test");
         processes.put(id, process);
         return process;
     }
